@@ -10,6 +10,10 @@
     <meta property="og:title" content="Undangan Pernikahan Putri & Aji">
     <meta property="og:description" content="Dengan penuh kebahagiaan, kami mengundang Anda untuk hadir di hari istimewa kami pada 12 Desember 2026.">
     <meta property="og:image" content="https://putri-aji-invitation.netlify.app/assets/images/lanscape_2.jpeg">
+    <meta property="og:image:secure_url" content="https://putri-aji-invitation.netlify.app/assets/images/lanscape_2.jpeg">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:width" content="1280">
+    <meta property="og:image:height" content="853">
     <meta property="og:image:alt" content="Foto Putri dan Aji">
     <meta name="twitter:card" content="summary_large_image">
     
@@ -1144,9 +1148,13 @@
         const guestNameEl = document.getElementById('guest-name');
         if (guestNameEl) {
             const params = new URLSearchParams(window.location.search);
-            const guestName = params.get('to');
-            const safeGuestName = guestName ? decodeURIComponent(guestName) : 'Bapak/Ibu/Saudara/i';
+            const guestName = params.get('to')?.trim();
+            const safeGuestName = guestName || 'Bapak/Ibu/Saudara/i';
             guestNameEl.textContent = safeGuestName;
+
+            if (guestName) {
+                document.getElementById('nama').value = guestName;
+            }
         }
 
         // Inisialisasi AOS (Animasi Scroll)
