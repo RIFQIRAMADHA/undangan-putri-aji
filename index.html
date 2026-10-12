@@ -1100,7 +1100,7 @@
 
                 <div class="text-left mt-10">
                     <h3 class="font-serif text-2xl font-bold text-brown mb-4">Ucapan & Doa</h3>
-                    <div id="guestbook-list" class="guestbook-list"></div>
+                    <div id="guestbook-list" class="guestbook-list" aria-live="polite"></div>
                 </div>
             </div>
         </section>
@@ -1261,36 +1261,62 @@
 
         // RSVP Form Handler
         const guestbookList = document.getElementById('guestbook-list');
-        const rsvpEndpoint = 'https://script.google.com/macros/s/AKfycbym8_z-HZwR6HFDl7-mX4Kxlwh2MQZSIuA0i6SlriM_aOj9YhXOY01_c22YhymoPCAH0Q/exec';
+        const rsvpEndpoint = 'https://script.google.com/macros/s/AKfycby7SmQ7T72n-tm95qVSRYfQhUriCwwa43f6IBRQ0Fp076qeLlzk7y2_L0AUUVwLHbVUwg/exec';
 
-        function getGuestbook() {
-            try {
-                return JSON.parse(localStorage.getItem('weddingGuestbook')) || [];
-            } catch (error) {
-                return [];
-            }
+        function renderGuestbookMessage(message) {
+            guestbookList.replaceChildren();
+            const item = document.createElement('div');
+            item.className = 'guestbook-item';
+            item.textContent = message;
+            guestbookList.appendChild(item);
         }
 
-        function saveGuestbook(data) {
-            localStorage.setItem('weddingGuestbook', JSON.stringify(data));
-        }
-
-        function renderGuestbook() {
-            const entries = getGuestbook();
-
-            if (!guestbookList) return;
+        function renderGuestbook(entries) {
+            guestbookList.replaceChildren();
 
             if (!entries.length) {
-                guestbookList.innerHTML = '<div class="guestbook-item"><strong>Belum ada ucapan</strong><p>Jadilah orang pertama yang mengirim doa dan ucapan untuk pasangan kami.</p></div>';
+                renderGuestbookMessage('Belum ada ucapan. Jadilah orang pertama yang mengirim doa dan ucapan untuk pasangan kami.');
                 return;
             }
 
-            guestbookList.innerHTML = entries.map((entry) => `
-                <div class="guestbook-item">
-                    <strong>${entry.nama}</strong>
-                    <p>${entry.pesan || 'Doa restu dan ucapan selamat.'}</p>
-                </div>
-            `).join('');
+            entries.forEach((entry) => {
+                if (!entry || typeof entry.nama !== 'string' || !entry.nama.trim()) return;
+
+                const item = document.createElement('div');
+                item.className = 'guestbook-item';
+
+                const name = document.createElement('strong');
+                name.textContent = entry.nama;
+
+                const message = document.createElement('p');
+                message.textContent = typeof entry.ucapan === 'string' && entry.ucapan.trim()
+                    ? entry.ucapan
+                    : 'Doa restu dan ucapan selamat.';
+
+                item.append(name, message);
+                guestbookList.appendChild(item);
+            });
+        }
+
+        async function loadGuestbook() {
+            try {
+                const response = await fetch(rsvpEndpoint, { cache: 'no-store' });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const entries = await response.json();
+                if (!Array.isArray(entries)) {
+                    throw new Error('Format data ucapan tidak valid.');
+                }
+
+                renderGuestbook(entries);
+                return true;
+            } catch (error) {
+                console.error('Gagal memuat ucapan dari Google Sheets:', error);
+                renderGuestbookMessage('Ucapan belum dapat dimuat. Periksa koneksi internet lalu muat ulang halaman.');
+                return false;
+            }
         }
 
         document.getElementById('rsvp-form').addEventListener('submit', async function (event) {
@@ -1298,7 +1324,6 @@
 
             const nama = document.getElementById('nama').value.trim();
             const kehadiran = document.getElementById('kehadiran').value;
-            const jumlah = document.getElementById('jumlah').value;
             const pesan = document.getElementById('pesan').value.trim();
 
             if (!nama || !kehadiran) {
@@ -1335,17 +1360,7 @@
                 return;
             }
 
-            const entries = getGuestbook();
-            const newEntry = {
-                nama,
-                kehadiran,
-                jumlah,
-                pesan: pesan || 'Selamat dan semoga bahagia selalu.'
-            };
-
-            entries.unshift(newEntry);
-            saveGuestbook(entries.slice(0, 10));
-            renderGuestbook();
+            await loadGuestbook();
 
             Swal.fire({
                 icon: 'success',
@@ -1354,19 +1369,18 @@
                 confirmButtonColor: '#8B5A2B'
             });
 
-            console.log({
-                nama,
-                kehadiran,
-                jumlah,
-                pesan
-            });
-
             this.reset();
             document.getElementById('jumlah').value = '1';
             submitButton.disabled = false;
         });
 
-        renderGuestbook();
+        loadGuestbook();
+        window.addEventListener('focus', loadGuestbook);
+        setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                loadGuestbook();
+            }
+        }, 60000);
 
         // Fungsi Salin Teks
         function copyText(elementId) {
